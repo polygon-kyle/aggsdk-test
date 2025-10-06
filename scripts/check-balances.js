@@ -242,35 +242,6 @@ class BalanceChecker {
 
     console.log('\n\n' + '='.repeat(70));
   }
-
-  async checkPrices() {
-    console.log('\n\n💵 Checking token prices (approximate)...\n');
-
-    try {
-      // Note: In production, integrate with real price API
-      // For now, use approximate values
-      const prices = {
-        ETH: 2000,  // USD
-        WBTC: 42000, // USD
-        OKB: 45,     // USD
-        CUSTOM: 0    // Custom token has no market price
-      };
-
-      console.log('  Current Prices (approximate):');
-      for (const [symbol, price] of Object.entries(prices)) {
-        if (price > 0) {
-          console.log(`    ${symbol}: $${price.toLocaleString()}`);
-        } else {
-          console.log(`    ${symbol}: No market price`);
-        }
-      }
-
-      return prices;
-    } catch (error) {
-      console.warn('  ⚠️ Could not fetch prices:', error.message);
-      return {};
-    }
-  }
 }
 
 async function main() {
@@ -306,7 +277,7 @@ async function main() {
   try {
     await checker.initialize();
     await checker.checkAllBalances();
-    await checker.checkPrices();
+    // await checker.checkPrices();
     checker.generateSummaryReport();
 
     console.log('\n✅ Balance check complete!\n');

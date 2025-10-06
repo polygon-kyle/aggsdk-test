@@ -147,30 +147,6 @@ const CHAINS = {
 - **Initial Supply**: 1,000,000,000 (1 billion tokens)
 - **Origin Chain**: Katana
 
-### Why Katana Only?
-
-**Single Origin Strategy:**
-- ✅ Deploy once on Katana (origin chain)
-- ✅ Bridge automatically creates wrapped versions on Base/Ethereum
-- ✅ Test suite auto-resolves wrapped token addresses
-- ✅ Single 1B token supply (not 3B across chains)
-- ✅ Lower deployment costs (~60% less gas)
-- ✅ Tests real bridge wrap/unwrap mechanism
-
-**How It Works:**
-```
-Katana (Origin)              →  Base/Ethereum (Wrapped)
-┌─────────────────┐             ┌──────────────────┐
-│ ASTEST Original │   Bridge    │ Wrapped ASTEST   │
-│ 1B Supply       │   ──────→   │ Auto-created     │
-│ Lock tokens     │             │ Mint wrapped     │
-└─────────────────┘             └──────────────────┘
-        ↑                                  │
-        │          ← Burn wrapped          │
-        └──────────────────────────────────┘
-           Unlock original
-```
-
 ### Deployment Steps
 
 **1. Install Dependencies**

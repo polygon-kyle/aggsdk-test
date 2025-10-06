@@ -21,7 +21,7 @@ contract ASTEST is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ER
         public
         initializer
     {
-        __ERC20_init("ASTEST", "MTK");
+        __ERC20_init("ASTEST", "AST");
         __ERC20Burnable_init();
         __ERC20Pausable_init();
         __Ownable_init(initialOwner);
