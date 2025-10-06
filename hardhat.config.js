@@ -31,7 +31,7 @@ module.exports = {
     okx: {
       url: process.env.OKX_RPC,
       accounts: process.env.TEST_WALLET_PRIVATE_KEY ? [process.env.TEST_WALLET_PRIVATE_KEY] : [],
-      chainId: 66
+      chainId: 196
     }
   },
   paths: {

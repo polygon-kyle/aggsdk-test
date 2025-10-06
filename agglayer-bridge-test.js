@@ -53,7 +53,7 @@ const CHAINS = {
     isAgglayer: true
   },
   okx: {
-    chainId: 66,
+    chainId: 196,
     networkId: 2, // Agglayer network ID for OKX (adjust if different)
     name: 'OKX X Layer',
     rpc: process.env.OKX_RPC,
