@@ -32,7 +32,7 @@ const CHAINS = {
     chainId: 1,
     networkId: 0, // Agglayer network ID for Ethereum
     name: 'Ethereum',
-    rpc: process.env.ETHEREUM_RPC || 'https://mainnet.gateway.tenderly.co/74Oft2UTCAgT84v4XwtxpL',
+    rpc: process.env.ETHEREUM_RPC,
     bridgeAddress: process.env.ETHEREUM_BRIDGE_ADDRESS || '0x2a3DD3EB832aF982ec71669E178424b10Dca2EDe',
     isAgglayer: true
   },
@@ -40,7 +40,7 @@ const CHAINS = {
     chainId: 8453,
     networkId: 10, // Agglayer network ID for Base (adjust if different)
     name: 'Base',
-    rpc: process.env.BASE_RPC || 'https://base.gateway.tenderly.co/5HeH5RETKLOYLiGVpxpZRu',
+    rpc: process.env.BASE_RPC,
     bridgeAddress: process.env.BASE_BRIDGE_ADDRESS || '0x2a3DD3EB832aF982ec71669E178424b10Dca2EDe',
     isAgglayer: true
   },
@@ -48,7 +48,7 @@ const CHAINS = {
     chainId: 747474,
     networkId: 8, // Agglayer network ID for Katana (adjust if different)
     name: 'Katana',
-    rpc: process.env.KATANA_RPC || 'https://katana.gateway.tenderly.co/24cZC95Eknn4OZZzVfHSTq',
+    rpc: process.env.KATANA_RPC,
     bridgeAddress: process.env.KATANA_BRIDGE_ADDRESS || '0x2a3DD3EB832aF982ec71669E178424b10Dca2EDe',
     isAgglayer: true
   },
@@ -56,7 +56,7 @@ const CHAINS = {
     chainId: 66,
     networkId: 2, // Agglayer network ID for OKX (adjust if different)
     name: 'OKX X Layer',
-    rpc: process.env.OKX_RPC || 'https://rpc.xlayer.tech',
+    rpc: process.env.OKX_RPC,
     bridgeAddress: process.env.OKX_BRIDGE_ADDRESS || '0x2a3DD3EB832aF982ec71669E178424b10Dca2EDe',
     isAgglayer: true
   }

@@ -14,17 +14,17 @@ module.exports = {
   },
   networks: {
     ethereum: {
-      url: process.env.ETHEREUM_RPC || 'https://mainnet.gateway.tenderly.co/74Oft2UTCAgT84v4XwtxpL',
+      url: process.env.ETHEREUM_RPC || 'https://eth.llamarpc.com',
       accounts: process.env.TEST_WALLET_PRIVATE_KEY ? [process.env.TEST_WALLET_PRIVATE_KEY] : [],
       chainId: 1
     },
     base: {
-      url: process.env.BASE_RPC || 'https://base.gateway.tenderly.co/5HeH5RETKLOYLiGVpxpZRu',
+      url: process.env.BASE_RPC || 'https://mainnet.base.org',
       accounts: process.env.TEST_WALLET_PRIVATE_KEY ? [process.env.TEST_WALLET_PRIVATE_KEY] : [],
       chainId: 8453
     },
     katana: {
-      url: process.env.KATANA_RPC || 'https://katana.gateway.tenderly.co/24cZC95Eknn4OZZzVfHSTq',
+      url: process.env.KATANA_RPC,
       accounts: process.env.TEST_WALLET_PRIVATE_KEY ? [process.env.TEST_WALLET_PRIVATE_KEY] : [],
       chainId: 747474
     },
