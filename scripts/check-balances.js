@@ -139,6 +139,11 @@ class BalanceChecker {
     console.log('💰 Checking balances for:', this.walletAddress);
     console.log('');
 
+    // Store balances for summary
+    for (const chainName of Object.keys(CHAINS)) {
+      this.balances[chainName] = {};
+    }
+
     for (const [chainName, chainConfig] of Object.entries(CHAINS)) {
       console.log(`\n${'='.repeat(70)}`);
       console.log(`📍 ${chainConfig.name} (Chain ID: ${chainConfig.chainId})`);
@@ -147,13 +152,15 @@ class BalanceChecker {
       // Check native token (ETH)
       console.log('  Native Token (ETH):');
       const nativeBalance = await this.checkNativeBalance(chainName);
+      this.balances[chainName].ETH = nativeBalance;
+
       if (nativeBalance.error) {
         console.log(`    ❌ Error: ${nativeBalance.error}`);
       } else {
         const isLow = parseFloat(nativeBalance.formatted) < 0.01;
         const icon = isLow ? '⚠️' : '✅';
         console.log(`    ${icon} Balance: ${nativeBalance.formatted} ETH`);
-        if (isLow) {
+        if (isLow && parseFloat(nativeBalance.formatted) > 0) {
           console.log(`    ⚠️ Low balance! You may need more ETH for gas fees.`);
         }
       }
@@ -177,6 +184,8 @@ class BalanceChecker {
           tokenData.symbol
         );
 
+        this.balances[chainName][tokenSymbol] = balance;
+
         if (balance.error) {
           console.log(`      ❌ Error: ${balance.error}`);
         } else {
@@ -196,51 +205,95 @@ class BalanceChecker {
   }
 
   generateSummaryReport() {
-    console.log('\n\n' + '='.repeat(70));
-    console.log('📊 BALANCE SUMMARY');
-    console.log('='.repeat(70) + '\n');
+    console.log('\n\n' + '='.repeat(100));
+    console.log('📊 BALANCE SUMMARY TABLE');
+    console.log('='.repeat(100) + '\n');
 
     console.log(`Wallet Address: ${this.walletAddress}\n`);
 
-    console.log('Native Token (ETH) Balances:');
-    console.log('-'.repeat(70));
+    // Create comprehensive token balance table
+    const tokens = ['ETH', 'WBTC', 'OKB', 'ASTEST'];
+    const chains = ['ethereum', 'base', 'katana', 'okx'];
 
+    // Print header
+    console.log('┌─────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┐');
+    console.log('│   Token     │    Ethereum      │      Base        │     Katana       │    OKX X Layer   │');
+    console.log('├─────────────┼──────────────────┼──────────────────┼──────────────────┼──────────────────┤');
+
+    // Print token rows
+    for (const token of tokens) {
+      const row = [`│ ${token.padEnd(11)} │`];
+
+      for (const chain of chains) {
+        const balance = this.balances[chain]?.[token];
+        let cell = '';
+
+        if (!balance || balance.error) {
+          cell = '       -          ';
+        } else {
+          const val = parseFloat(balance.formatted);
+          if (val === 0) {
+            cell = '     0.0000       ';
+          } else if (val < 0.0001) {
+            cell = `  ${balance.formatted.substring(0, 14).padEnd(14)}`;
+          } else {
+            const formatted = val.toFixed(4);
+            cell = `  ${formatted.padEnd(14)}`;
+          }
+        }
+
+        row.push(` ${cell} │`);
+      }
+
+      console.log(row.join(''));
+    }
+
+    console.log('└─────────────┴──────────────────┴──────────────────┴──────────────────┴──────────────────┘');
+
+    // Total ETH calculation
+    console.log('\n💎 Total ETH Across All Chains:');
+    console.log('-'.repeat(100));
     let totalETH = ethers.BigNumber.from(0);
     for (const [chainName, chainConfig] of Object.entries(CHAINS)) {
       const balance = this.balances[chainName]?.ETH;
       if (balance && !balance.error) {
         const amount = ethers.utils.parseEther(balance.formatted || '0');
         totalETH = totalETH.add(amount);
-        console.log(`  ${chainConfig.name}: ${balance.formatted} ETH`);
+        console.log(`  ${chainConfig.name.padEnd(20)}: ${balance.formatted} ETH`);
       }
     }
-    console.log(`  ${'─'.repeat(66)}`);
-    console.log(`  Total ETH (across all chains): ${ethers.utils.formatEther(totalETH)} ETH`);
+    console.log(`  ${'─'.repeat(96)}`);
+    console.log(`  ${'Total'.padEnd(20)}: ${ethers.utils.formatEther(totalETH)} ETH`);
 
-    console.log('\n\nReadiness Check:');
-    console.log('-'.repeat(70));
+    // Readiness check
+    console.log('\n\n🔍 Bridge Testing Readiness:');
+    console.log('-'.repeat(100));
 
-    const checks = {
-      hasETHOnEthereum: false,
-      hasETHOnBase: false,
-      hasETHOnKatana: false,
-      hasETHOnOKX: false,
-      hasWBTCOnEthereum: false,
-      hasWBTCOnBase: false,
-      hasOKBOnOKX: false
+    const hasBalance = (chain, token) => {
+      const bal = this.balances[chain]?.[token];
+      return bal && !bal.error && parseFloat(bal.formatted) > 0;
     };
 
-    // Perform checks (would need to store balances in this.balances)
-    console.log('  ✅ = Ready for testing');
-    console.log('  ⚠️ = May have issues (low balance or missing tokens)');
-    console.log('  ❌ = Not ready (no balance)');
+    const readiness = {
+      'Base ↔ Katana (ETH)': hasBalance('base', 'ETH') && hasBalance('katana', 'ETH'),
+      'Base ↔ Katana (WBTC)': hasBalance('base', 'WBTC') || hasBalance('katana', 'WBTC'),
+      'Base ↔ Katana (ASTEST)': hasBalance('katana', 'ASTEST') || hasBalance('base', 'ASTEST'),
+      'Katana ↔ OKX (ETH)': hasBalance('katana', 'ETH') && hasBalance('okx', 'ETH'),
+      'Katana ↔ OKX (OKB)': hasBalance('okx', 'OKB') || hasBalance('katana', 'OKB'),
+      'Katana ↔ OKX (WBTC)': hasBalance('katana', 'WBTC') || hasBalance('okx', 'WBTC'),
+      'Katana ↔ Ethereum (ETH)': hasBalance('katana', 'ETH') && hasBalance('ethereum', 'ETH'),
+      'Katana ↔ Ethereum (WBTC)': hasBalance('ethereum', 'WBTC') || hasBalance('katana', 'WBTC'),
+      'Katana ↔ Ethereum (ASTEST)': hasBalance('katana', 'ASTEST') || hasBalance('ethereum', 'ASTEST')
+    };
 
-    console.log('\n  Bridge Testing Readiness:');
-    console.log('    Base ↔ Katana:     ⚠️ (Check ETH and WBTC balances above)');
-    console.log('    Katana ↔ OKX:      ⚠️ (Check ETH, OKB, and WBTC balances above)');
-    console.log('    Katana ↔ Ethereum: ⚠️ (Check ETH and WBTC balances above)');
+    console.log('  Legend: ✅ = Ready  |  ⚠️ = Partial  |  ❌ = Not Ready\n');
 
-    console.log('\n\n' + '='.repeat(70));
+    for (const [test, ready] of Object.entries(readiness)) {
+      const icon = ready ? '✅' : '❌';
+      console.log(`  ${icon} ${test}`);
+    }
+
+    console.log('\n' + '='.repeat(100));
   }
 }
 
