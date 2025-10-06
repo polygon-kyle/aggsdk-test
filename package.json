@@ -1,0 +1,39 @@
+{
+  "name": "agglayer-bridge-test-suite",
+  "version": "0.1.0",
+  "description": "Comprehensive test suite for Agglayer SDK bridge functionality",
+  "main": "agglayer-bridge-test.js",
+  "scripts": {
+    "test": "node agglayer-bridge-test.js",
+    "test:dry-run": "DRY_RUN=true node agglayer-bridge-test.js",
+    "test:verbose": "DEBUG=* node agglayer-bridge-test.js",
+    "deploy:astest": "npx hardhat run scripts/deploy-astest.js --network katana",
+    "deploy:astest:katana": "npx hardhat run scripts/deploy-astest.js --network katana",
+    "compile": "npx hardhat compile",
+    "check:balances": "node scripts/check-balances.js",
+    "track:tx": "node scripts/track-transaction.js",
+    "setup": "npm install && cp .env.template .env && echo '\n✅ Setup complete! Edit .env with your keys.'",
+    "pretest": "node -e \"require('dotenv').config(); if(!process.env.TEST_WALLET_PRIVATE_KEY){console.error('❌ TEST_WALLET_PRIVATE_KEY not set in .env'); process.exit(1);}\""
+  },
+  "dependencies": {
+    "@agglayer/sdk": "beta",
+    "ethers": "^5.7.2",
+    "dotenv": "^16.0.3",
+    "axios": "^1.6.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "@openzeppelin/contracts-upgradeable": "^5.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.0",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "author": "cryptokai0011",
+  "license": "MIT"
+}
