@@ -14,12 +14,12 @@ module.exports = {
   },
   networks: {
     ethereum: {
-      url: process.env.ETHEREUM_RPC || 'https://eth.llamarpc.com',
+      url: process.env.ETHEREUM_RPC,
       accounts: process.env.TEST_WALLET_PRIVATE_KEY ? [process.env.TEST_WALLET_PRIVATE_KEY] : [],
       chainId: 1
     },
     base: {
-      url: process.env.BASE_RPC || 'https://mainnet.base.org',
+      url: process.env.BASE_RPC,
       accounts: process.env.TEST_WALLET_PRIVATE_KEY ? [process.env.TEST_WALLET_PRIVATE_KEY] : [],
       chainId: 8453
     },
@@ -29,7 +29,7 @@ module.exports = {
       chainId: 747474
     },
     okx: {
-      url: process.env.OKX_RPC || 'https://rpc.xlayer.tech',
+      url: process.env.OKX_RPC,
       accounts: process.env.TEST_WALLET_PRIVATE_KEY ? [process.env.TEST_WALLET_PRIVATE_KEY] : [],
       chainId: 66
     }
