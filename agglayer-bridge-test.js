@@ -77,7 +77,7 @@ const TOKENS = {
     okx: { address: null, symbol: 'WBTC', decimals: 8, isNative: false } // Will be resolved
   },
   OKB: {
-    okx: { address: '0x75231f58b43240c9718dd58b4967c5114342a86c', symbol: 'OKB', decimals: 18, isNative: false },
+    okx: { address: '0xe538905cf8410324e03a5a23c1c177a474d59b2b', symbol: 'OKB', decimals: 18, isNative: false }, // Wrapped OKB on X Layer
     katana: { address: null, symbol: 'OKB', decimals: 18, isNative: false } // Will be resolved
   },
   CUSTOM_ERC20: {
