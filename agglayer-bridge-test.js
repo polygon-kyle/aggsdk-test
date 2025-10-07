@@ -185,10 +185,28 @@ class AggLayerBridgeTest {
           defaultNetwork: 1, // Ethereum mainnet as default
           customRpcUrls: {
             1: CHAINS.ethereum.rpc,
-            8453: CHAINS.base.rpc,
-            747474: CHAINS.katana.rpc,
-            66: CHAINS.okx.rpc
-          }
+            747474: CHAINS.katana.rpc
+          },
+          chains: [
+            {
+              chainId: 8453,
+              networkId: 10,
+              name: 'Base',
+              rpcUrl: CHAINS.base.rpc,
+              nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+              bridgeAddress: CHAINS.base.bridgeAddress,
+              isTestnet: false
+            },
+            {
+              chainId: 196,
+              networkId: 2,
+              name: 'OKX X Layer',
+              rpcUrl: CHAINS.okx.rpc,
+              nativeCurrency: { name: 'OKB', symbol: 'OKB', decimals: 18 },
+              bridgeAddress: CHAINS.okx.bridgeAddress,
+              isTestnet: false
+            }
+          ]
         }
       });
 
