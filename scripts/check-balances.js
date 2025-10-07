@@ -260,12 +260,12 @@ class BalanceChecker {
     console.log(`  ${'─'.repeat(96)}`);
     console.log(`  ${'Total'.padEnd(20)}: ${ethers.utils.formatEther(totalOKB)} OKB`);
 
-    // ASTEST balances
+    // ASTEST balances (stored as CUSTOM_ERC20 in balances object)
     console.log('\n\n🎯 ASTEST Across All Chains:');
     console.log('-'.repeat(100));
     let totalASTEST = ethers.BigNumber.from(0);
     for (const [chainName, chainConfig] of Object.entries(CHAINS)) {
-      const balance = this.balances[chainName]?.ASTEST;
+      const balance = this.balances[chainName]?.CUSTOM_ERC20;
       if (balance && !balance.error) {
         const amount = ethers.utils.parseEther(balance.formatted || '0');
         totalASTEST = totalASTEST.add(amount);
@@ -289,13 +289,13 @@ class BalanceChecker {
     const readiness = {
       'Base ↔ Katana (ETH)': hasBalance('base', 'ETH') && hasBalance('katana', 'ETH'),
       'Base ↔ Katana (WBTC)': hasBalance('base', 'WBTC') || hasBalance('katana', 'WBTC'),
-      'Base ↔ Katana (ASTEST)': hasBalance('katana', 'ASTEST') || hasBalance('base', 'ASTEST'),
+      'Base ↔ Katana (ASTEST)': hasBalance('katana', 'CUSTOM_ERC20') || hasBalance('base', 'CUSTOM_ERC20'),
       'Katana ↔ OKX (ETH)': hasBalance('katana', 'ETH') && hasBalance('okx', 'ETH'),
       'Katana ↔ OKX (OKB)': hasBalance('okx', 'OKB') || hasBalance('katana', 'OKB'),
       'Katana ↔ OKX (WBTC)': hasBalance('katana', 'WBTC') || hasBalance('okx', 'WBTC'),
       'Katana ↔ Ethereum (ETH)': hasBalance('katana', 'ETH') && hasBalance('ethereum', 'ETH'),
       'Katana ↔ Ethereum (WBTC)': hasBalance('ethereum', 'WBTC') || hasBalance('katana', 'WBTC'),
-      'Katana ↔ Ethereum (ASTEST)': hasBalance('katana', 'ASTEST') || hasBalance('ethereum', 'ASTEST')
+      'Katana ↔ Ethereum (ASTEST)': hasBalance('katana', 'CUSTOM_ERC20') || hasBalance('ethereum', 'CUSTOM_ERC20')
     };
 
     console.log('  Legend: ✅ = Ready  |  ⚠️ = Partial  |  ❌ = Not Ready\n');
