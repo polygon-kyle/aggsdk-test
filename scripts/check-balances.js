@@ -206,52 +206,13 @@ class BalanceChecker {
 
   generateSummaryReport() {
     console.log('\n\n' + '='.repeat(100));
-    console.log('📊 BALANCE SUMMARY TABLE');
+    console.log('📊 BALANCE SUMMARY');
     console.log('='.repeat(100) + '\n');
 
     console.log(`Wallet Address: ${this.walletAddress}\n`);
 
-    // Create comprehensive token balance table
-    const tokens = ['ETH', 'WBTC', 'OKB', 'ASTEST'];
-    const chains = ['ethereum', 'base', 'katana', 'okx'];
-
-    // Print header
-    console.log('┌─────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┐');
-    console.log('│   Token     │    Ethereum      │      Base        │     Katana       │    OKX X Layer   │');
-    console.log('├─────────────┼──────────────────┼──────────────────┼──────────────────┼──────────────────┤');
-
-    // Print token rows
-    for (const token of tokens) {
-      const row = [`│ ${token.padEnd(11)} │`];
-
-      for (const chain of chains) {
-        const balance = this.balances[chain]?.[token];
-        let cell = '';
-
-        if (!balance || balance.error) {
-          cell = '       -          ';
-        } else {
-          const val = parseFloat(balance.formatted);
-          if (val === 0) {
-            cell = '     0.0000       ';
-          } else if (val < 0.0001) {
-            cell = `  ${balance.formatted.substring(0, 14).padEnd(14)}`;
-          } else {
-            const formatted = val.toFixed(4);
-            cell = `  ${formatted.padEnd(14)}`;
-          }
-        }
-
-        row.push(` ${cell} │`);
-      }
-
-      console.log(row.join(''));
-    }
-
-    console.log('└─────────────┴──────────────────┴──────────────────┴──────────────────┴──────────────────┘');
-
-    // Total ETH calculation
-    console.log('\n💎 Total ETH Across All Chains:');
+    // ETH balances
+    console.log('💎 Total ETH Across All Chains:');
     console.log('-'.repeat(100));
     let totalETH = ethers.BigNumber.from(0);
     for (const [chainName, chainConfig] of Object.entries(CHAINS)) {
@@ -264,6 +225,57 @@ class BalanceChecker {
     }
     console.log(`  ${'─'.repeat(96)}`);
     console.log(`  ${'Total'.padEnd(20)}: ${ethers.utils.formatEther(totalETH)} ETH`);
+
+    // WBTC balances
+    console.log('\n\n🪙 WBTC Across All Chains:');
+    console.log('-'.repeat(100));
+    let totalWBTC = ethers.BigNumber.from(0);
+    for (const [chainName, chainConfig] of Object.entries(CHAINS)) {
+      const balance = this.balances[chainName]?.WBTC;
+      if (balance && !balance.error) {
+        const amount = ethers.utils.parseUnits(balance.formatted || '0', 8);
+        totalWBTC = totalWBTC.add(amount);
+        console.log(`  ${chainConfig.name.padEnd(20)}: ${balance.formatted} WBTC`);
+      } else {
+        console.log(`  ${chainConfig.name.padEnd(20)}: -`);
+      }
+    }
+    console.log(`  ${'─'.repeat(96)}`);
+    console.log(`  ${'Total'.padEnd(20)}: ${ethers.utils.formatUnits(totalWBTC, 8)} WBTC`);
+
+    // OKB balances
+    console.log('\n\n🟡 OKB Across All Chains:');
+    console.log('-'.repeat(100));
+    let totalOKB = ethers.BigNumber.from(0);
+    for (const [chainName, chainConfig] of Object.entries(CHAINS)) {
+      const balance = this.balances[chainName]?.OKB;
+      if (balance && !balance.error) {
+        const amount = ethers.utils.parseEther(balance.formatted || '0');
+        totalOKB = totalOKB.add(amount);
+        console.log(`  ${chainConfig.name.padEnd(20)}: ${balance.formatted} OKB`);
+      } else {
+        console.log(`  ${chainConfig.name.padEnd(20)}: -`);
+      }
+    }
+    console.log(`  ${'─'.repeat(96)}`);
+    console.log(`  ${'Total'.padEnd(20)}: ${ethers.utils.formatEther(totalOKB)} OKB`);
+
+    // ASTEST balances
+    console.log('\n\n🎯 ASTEST Across All Chains:');
+    console.log('-'.repeat(100));
+    let totalASTEST = ethers.BigNumber.from(0);
+    for (const [chainName, chainConfig] of Object.entries(CHAINS)) {
+      const balance = this.balances[chainName]?.ASTEST;
+      if (balance && !balance.error) {
+        const amount = ethers.utils.parseEther(balance.formatted || '0');
+        totalASTEST = totalASTEST.add(amount);
+        console.log(`  ${chainConfig.name.padEnd(20)}: ${balance.formatted} ASTEST`);
+      } else {
+        console.log(`  ${chainConfig.name.padEnd(20)}: -`);
+      }
+    }
+    console.log(`  ${'─'.repeat(96)}`);
+    console.log(`  ${'Total'.padEnd(20)}: ${ethers.utils.formatEther(totalASTEST)} ASTEST`);
 
     // Readiness check
     console.log('\n\n🔍 Bridge Testing Readiness:');
