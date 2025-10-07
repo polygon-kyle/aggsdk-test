@@ -19,7 +19,8 @@ const fs = require('fs');
 const path = require('path');
 
 async function main() {
-  const chainName = process.argv[2] || 'base';
+  // Detect chain name from hardhat network or args
+  const chainName = hre.network.name || process.argv[2] || 'katana';
 
   console.log('\n' + '='.repeat(80));
   console.log('🚀 ASTEST TOKEN DEPLOYMENT');
@@ -60,12 +61,10 @@ async function main() {
       deployer.address  // initialOwner
     ]);
 
-    // Deploy ERC1967Proxy
-    const ERC1967Proxy = await hre.ethers.getContractFactory(
-      '@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol:ERC1967Proxy'
-    );
+    // Deploy ASTESTProxy (ERC1967Proxy wrapper)
+    const ASTESTProxy = await hre.ethers.getContractFactory('ASTESTProxy');
 
-    const proxy = await ERC1967Proxy.deploy(implementation.address, initData);
+    const proxy = await ASTESTProxy.deploy(implementation.address, initData);
     await proxy.deployed();
 
     console.log(`  ✅ Proxy deployed at: ${proxy.address}`);
