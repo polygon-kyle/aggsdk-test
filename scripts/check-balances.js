@@ -232,11 +232,14 @@ class BalanceChecker {
 
     console.log(`Wallet Address: ${this.walletAddress}\n`);
 
-    // ETH balances
-    console.log('💎 Total ETH Across All Chains:');
+    // ETH balances (native on Ethereum, Base, Katana)
+    console.log('💎 ETH Across All Chains:');
     console.log('-'.repeat(100));
     let totalETH = ethers.BigNumber.from(0);
     for (const [chainName, chainConfig] of Object.entries(CHAINS)) {
+      // Skip X Layer for ETH (it uses OKB as native, WETH as ERC20)
+      if (chainName === 'okx') continue;
+
       const balance = this.balances[chainName]?.ETH;
       if (balance && !balance.error) {
         const amount = ethers.utils.parseEther(balance.formatted || '0');
@@ -249,8 +252,8 @@ class BalanceChecker {
 
     // WETH balances (only on X Layer as ERC20)
     const wethBalance = this.balances['okx']?.ETH;
-    if (wethBalance && !wethBalance.error && parseFloat(wethBalance.formatted) > 0) {
-      console.log('\n\n💧 WETH (Wrapped ETH):');
+    if (wethBalance && !wethBalance.error) {
+      console.log('\n\n💧 WETH (Wrapped ETH on X Layer):');
       console.log('-'.repeat(100));
       console.log(`  OKX X Layer         : ${wethBalance.formatted} WETH`);
     }
