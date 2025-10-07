@@ -130,17 +130,13 @@ async function main() {
 
     console.log(`  ✅ Deployment info saved to: ${deploymentFile}\n`);
 
-    // Step 5: Update .env file
-    console.log('📝 Step 5: Updating environment configuration...');
-    updateEnvFile(chainName, proxy.address);
-
     console.log('\n' + '='.repeat(80));
     console.log('✅ DEPLOYMENT SUCCESSFUL!');
     console.log('='.repeat(80) + '\n');
 
     console.log(`Token Address (Proxy): ${proxy.address}`);
     console.log(`Implementation Address: ${implementation.address}`);
-    console.log(`\nAdd this to your .env file:`);
+    console.log(`\n⚠️  IMPORTANT: Update your .env file with the token address:\n`);
     console.log(`CUSTOM_TOKEN_${chainName.toUpperCase()}=${proxy.address}`);
     console.log('\n📋 Token Features:');
     deploymentInfo.token.features.forEach(feature => {
@@ -176,32 +172,6 @@ function getExplorerLink(chainId, address) {
   return explorers[chainId] || `https://blockscan.com/address/${address}`;
 }
 
-function updateEnvFile(chainName, tokenAddress) {
-  const envPath = path.join(__dirname, '..', '.env');
-
-  if (!fs.existsSync(envPath)) {
-    console.warn('  ⚠️ .env file not found, skipping update');
-    return;
-  }
-
-  let envContent = fs.readFileSync(envPath, 'utf8');
-  const envVar = `CUSTOM_TOKEN_${chainName.toUpperCase()}`;
-  const envLine = `${envVar}=${tokenAddress}`;
-
-  if (envContent.includes(envVar)) {
-    // Update existing line
-    envContent = envContent.replace(
-      new RegExp(`${envVar}=.*`, 'g'),
-      envLine
-    );
-  } else {
-    // Add new line
-    envContent += `\n${envLine}\n`;
-  }
-
-  fs.writeFileSync(envPath, envContent);
-  console.log(`  ✅ Updated .env file with ${envVar}`);
-}
 
 // Execute deployment
 main()
