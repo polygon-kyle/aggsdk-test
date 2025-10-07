@@ -72,9 +72,9 @@ const TOKENS = {
   },
   WBTC: {
     ethereum: { address: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', symbol: 'WBTC', decimals: 8, isNative: false },
-    base: { address: '0x236aa50979D5f3De3Bd1Eeb40E81137F22ab794b', symbol: 'WBTC', decimals: 8, isNative: false },
+    base: { address: '0x0555E30da8f98308EdB960aa94C0Db47230d2B9c', symbol: 'WBTC', decimals: 8, isNative: false },
     katana: { address: null, symbol: 'WBTC', decimals: 8, isNative: false }, // Will be resolved
-    okx: { address: null, symbol: 'WBTC', decimals: 8, isNative: false } // Will be resolved
+    okx: { address: '0xea034fb02eb1808c2cc3adbc15f447b93cbe08e1', symbol: 'WBTC', decimals: 8, isNative: false }
   },
   OKB: {
     okx: { address: '0xe538905cf8410324e03a5a23c1c177a474d59b2b', symbol: 'OKB', decimals: 18, isNative: false }, // Wrapped OKB on X Layer
