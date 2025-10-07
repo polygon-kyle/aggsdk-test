@@ -478,31 +478,29 @@ class AggLayerBridgeTest {
   }
 
   async checkBalance(chainName, tokenSymbol, requiredAmount) {
-    // Temporarily commented out for testing
-    // try {
-    //   const token = TOKENS[tokenSymbol][chainName];
-    //   const wallet = this.wallets[chainName];
+    try {
+      const token = TOKENS[tokenSymbol][chainName];
+      const wallet = this.wallets[chainName];
 
-    //   let balance;
-    //   if (token.isNative) {
-    //     balance = await wallet.getBalance();
-    //   } else {
-    //     const erc20 = this.native.erc20(token.address, CHAINS[chainName].chainId);
-    //     balance = ethers.BigNumber.from(await erc20.getBalance(wallet.address));
-    //   }
+      let balance;
+      if (token.isNative) {
+        balance = await wallet.getBalance();
+      } else {
+        const erc20 = this.native.erc20(token.address, CHAINS[chainName].chainId);
+        balance = ethers.BigNumber.from(await erc20.getBalance(wallet.address));
+      }
 
-    //   console.log(`  Current: ${ethers.utils.formatUnits(balance, token.decimals)} ${tokenSymbol}`);
-    //   console.log(`  Required: ${ethers.utils.formatUnits(requiredAmount, token.decimals)} ${tokenSymbol}`);
+      console.log(`  Current: ${ethers.utils.formatUnits(balance, token.decimals)} ${tokenSymbol}`);
+      console.log(`  Required: ${ethers.utils.formatUnits(requiredAmount, token.decimals)} ${tokenSymbol}`);
 
-    //   const hasBalance = balance.gte(requiredAmount);
-    //   console.log(`  ${hasBalance ? '✅' : '❌'} ${hasBalance ? 'Sufficient' : 'Insufficient'} balance`);
+      const hasBalance = balance.gte(requiredAmount);
+      console.log(`  ${hasBalance ? '✅' : '❌'} ${hasBalance ? 'Sufficient' : 'Insufficient'} balance`);
 
-    //   return hasBalance;
-    // } catch (error) {
-    //   console.error(`  ❌ Error checking balance:`, error.message);
-    //   return false;
-    // }
-    return true; // Always return true for testing
+      return hasBalance;
+    } catch (error) {
+      console.error(`  ❌ Error checking balance:`, error.message);
+      return false;
+    }
   }
 
   async approveToken(chainName, tokenAddress, spenderAddress, amount) {
