@@ -77,7 +77,8 @@ const TOKENS = {
     okx: { address: '0xea034fb02eb1808c2cc3adbc15f447b93cbe08e1', symbol: 'WBTC', decimals: 8, isNative: false }
   },
   OKB: {
-    okx: { address: '0xe538905cf8410324e03a5a23c1c177a474d59b2b', symbol: 'OKB', decimals: 18, isNative: false }, // Wrapped OKB on X Layer
+    ethereum: { address: '0x75231F58b43240C9718Dd58B4967c5114342a86c', symbol: 'OKB', decimals: 18, isNative: false },
+    okx: { address: ethers.constants.AddressZero, symbol: 'OKB', decimals: 18, isNative: true }, // OKB is native gas token on X Layer
     katana: { address: null, symbol: 'OKB', decimals: 18, isNative: false } // Will be resolved
   },
   CUSTOM_ERC20: {

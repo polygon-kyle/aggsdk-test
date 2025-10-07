@@ -149,19 +149,36 @@ class BalanceChecker {
       console.log(`📍 ${chainConfig.name} (Chain ID: ${chainConfig.chainId})`);
       console.log(`${'='.repeat(70)}\n`);
 
-      // Check native token (ETH)
-      console.log('  Native Token (ETH):');
+      // Check native token (ETH or OKB on X Layer)
+      const isOKXChain = chainName === 'okx';
+      console.log(`  Native Token (${isOKXChain ? 'OKB' : 'ETH'}):`);
       const nativeBalance = await this.checkNativeBalance(chainName);
-      this.balances[chainName].ETH = nativeBalance;
 
-      if (nativeBalance.error) {
-        console.log(`    ❌ Error: ${nativeBalance.error}`);
+      if (isOKXChain) {
+        // On X Layer, native token is OKB
+        this.balances[chainName].OKB = nativeBalance;
+        if (nativeBalance.error) {
+          console.log(`    ❌ Error: ${nativeBalance.error}`);
+        } else {
+          const isLow = parseFloat(nativeBalance.formatted) < 0.01;
+          const icon = isLow ? '⚠️' : '✅';
+          console.log(`    ${icon} Balance: ${nativeBalance.formatted} OKB`);
+          if (isLow && parseFloat(nativeBalance.formatted) > 0) {
+            console.log(`    ⚠️ Low balance! You may need more OKB for gas fees.`);
+          }
+        }
       } else {
-        const isLow = parseFloat(nativeBalance.formatted) < 0.01;
-        const icon = isLow ? '⚠️' : '✅';
-        console.log(`    ${icon} Balance: ${nativeBalance.formatted} ETH`);
-        if (isLow && parseFloat(nativeBalance.formatted) > 0) {
-          console.log(`    ⚠️ Low balance! You may need more ETH for gas fees.`);
+        // Other chains use ETH
+        this.balances[chainName].ETH = nativeBalance;
+        if (nativeBalance.error) {
+          console.log(`    ❌ Error: ${nativeBalance.error}`);
+        } else {
+          const isLow = parseFloat(nativeBalance.formatted) < 0.01;
+          const icon = isLow ? '⚠️' : '✅';
+          console.log(`    ${icon} Balance: ${nativeBalance.formatted} ETH`);
+          if (isLow && parseFloat(nativeBalance.formatted) > 0) {
+            console.log(`    ⚠️ Low balance! You may need more ETH for gas fees.`);
+          }
         }
       }
 
@@ -169,10 +186,13 @@ class BalanceChecker {
       console.log('\n  ERC20 Tokens:');
 
       for (const [tokenSymbol, tokenConfig] of Object.entries(TOKENS)) {
-        if (tokenSymbol === 'ETH') continue; // Skip native token
+        if (tokenSymbol === 'ETH') continue; // Skip ETH token
 
         const tokenData = tokenConfig[chainName];
-        if (!tokenData || !tokenData.address || tokenData.isNative) continue;
+        if (!tokenData || !tokenData.address) continue;
+
+        // Skip native tokens (they're handled above)
+        if (tokenData.isNative) continue;
 
         console.log(`\n    ${tokenSymbol}:`);
         console.log(`      Address: ${tokenData.address}`);
@@ -243,7 +263,7 @@ class BalanceChecker {
     console.log(`  ${'─'.repeat(96)}`);
     console.log(`  ${'Total'.padEnd(20)}: ${ethers.utils.formatUnits(totalWBTC, 8)} WBTC`);
 
-    // OKB balances
+    // OKB balances (native on X Layer, ERC20 on other chains)
     console.log('\n\n🟡 OKB Across All Chains:');
     console.log('-'.repeat(100));
     let totalOKB = ethers.BigNumber.from(0);
@@ -252,7 +272,8 @@ class BalanceChecker {
       if (balance && !balance.error) {
         const amount = ethers.utils.parseEther(balance.formatted || '0');
         totalOKB = totalOKB.add(amount);
-        console.log(`  ${chainConfig.name.padEnd(20)}: ${balance.formatted} OKB`);
+        const note = chainName === 'okx' ? ' (native gas token)' : '';
+        console.log(`  ${chainConfig.name.padEnd(20)}: ${balance.formatted} OKB${note}`);
       } else {
         console.log(`  ${chainConfig.name.padEnd(20)}: -`);
       }
