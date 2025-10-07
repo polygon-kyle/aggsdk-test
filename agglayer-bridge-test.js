@@ -68,7 +68,7 @@ const TOKENS = {
     ethereum: { address: ethers.constants.AddressZero, symbol: 'ETH', decimals: 18, isNative: true },
     base: { address: ethers.constants.AddressZero, symbol: 'ETH', decimals: 18, isNative: true },
     katana: { address: ethers.constants.AddressZero, symbol: 'ETH', decimals: 18, isNative: true },
-    okx: { address: ethers.constants.AddressZero, symbol: 'ETH', decimals: 18, isNative: true }
+    okx: { address: '0x5a77f1443d16ee5761d310e38b62f77f726bc71c', symbol: 'WETH', decimals: 18, isNative: false } // Wrapped ETH on X Layer
   },
   WBTC: {
     ethereum: { address: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', symbol: 'WBTC', decimals: 8, isNative: false },

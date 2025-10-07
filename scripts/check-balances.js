@@ -186,13 +186,14 @@ class BalanceChecker {
       console.log('\n  ERC20 Tokens:');
 
       for (const [tokenSymbol, tokenConfig] of Object.entries(TOKENS)) {
-        if (tokenSymbol === 'ETH') continue; // Skip ETH token
-
         const tokenData = tokenConfig[chainName];
         if (!tokenData || !tokenData.address) continue;
 
         // Skip native tokens (they're handled above)
         if (tokenData.isNative) continue;
+
+        // Skip ETH on non-OKX chains (already shown as native)
+        if (tokenSymbol === 'ETH' && chainName !== 'okx') continue;
 
         console.log(`\n    ${tokenSymbol}:`);
         console.log(`      Address: ${tokenData.address}`);
@@ -245,6 +246,14 @@ class BalanceChecker {
     }
     console.log(`  ${'─'.repeat(96)}`);
     console.log(`  ${'Total'.padEnd(20)}: ${ethers.utils.formatEther(totalETH)} ETH`);
+
+    // WETH balances (only on X Layer as ERC20)
+    const wethBalance = this.balances['okx']?.ETH;
+    if (wethBalance && !wethBalance.error && parseFloat(wethBalance.formatted) > 0) {
+      console.log('\n\n💧 WETH (Wrapped ETH):');
+      console.log('-'.repeat(100));
+      console.log(`  OKX X Layer         : ${wethBalance.formatted} WETH`);
+    }
 
     // WBTC balances
     console.log('\n\n🪙 WBTC Across All Chains:');
