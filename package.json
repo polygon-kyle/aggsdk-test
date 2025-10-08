@@ -6,6 +6,8 @@
   "scripts": {
     "test": "node agglayer-bridge-test.js",
     "test:dry-run": "DRY_RUN=true node agglayer-bridge-test.js",
+    "test:debug": "DEBUG=true node agglayer-bridge-test.js",
+    "test:debug:dry-run": "DEBUG=true DRY_RUN=true node agglayer-bridge-test.js",
     "test:verbose": "DEBUG=* node agglayer-bridge-test.js",
     "deploy:astest": "npx hardhat run scripts/deploy-astest.js --network katana",
     "deploy:astest:katana": "npx hardhat run scripts/deploy-astest.js --network katana",

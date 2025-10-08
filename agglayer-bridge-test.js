@@ -80,7 +80,7 @@ const TOKENS = {
   CUSTOM_ERC20: {
     katana: { address: process.env.CUSTOM_TOKEN_KATANA || null, symbol: 'ASTEST', decimals: 18, isNative: false },
     base: { address: null, symbol: 'ASTEST', decimals: 18, isNative: false },
-    ethereum: { address: null, symbol: 'ASTEST', decimals: 18, isNative: false }
+    ethereum: { address: '0x264ac90B6B5CA5944F98366FA1B8e3d517207FAa', symbol: 'ASTEST', decimals: 18, isNative: false }
   }
 };
 
@@ -919,24 +919,26 @@ class AggLayerBridgeTest {
       // ETH - exists natively on all chains (except OKX uses WETH)
       { from: 'base', to: 'katana', token: 'ETH', direction: 'Base→Katana' },
       { from: 'katana', to: 'base', token: 'ETH', direction: 'Katana→Base' },
-      // OKX uses WETH (not native ETH) - testing with SDK workarounds
-      { from: 'okx', to: 'katana', token: 'ETH', direction: 'OKX(WETH)→Katana' },
-      { from: 'katana', to: 'okx', token: 'ETH', direction: 'Katana(ETH)→OKX(WETH)' },
       { from: 'ethereum', to: 'katana', token: 'ETH', direction: 'Ethereum→Katana' },
       { from: 'katana', to: 'ethereum', token: 'ETH', direction: 'Katana→Ethereum' },
+
+      // OKX uses WETH (not native ETH) - bridge TO OKX first to create balance, then FROM
+      { from: 'katana', to: 'okx', token: 'ETH', direction: 'Katana(ETH)→OKX(WETH) - creates balance' },
+      { from: 'okx', to: 'katana', token: 'ETH', direction: 'OKX(WETH)→Katana - uses created balance' },
 
       // === PHASE 2: Create wrapped tokens on Katana (bridge TO Katana first) ===
       // COMMENTED: OKB bridging not supported - no route available (see bug-3.md)
       // { from: 'okx', to: 'katana', token: 'OKB', direction: 'OKX→Katana (creates wrapped)' },
       // { from: 'katana', to: 'okx', token: 'OKB', direction: 'Katana→OKX (uses wrapped)' },
 
-      // WBTC: Already exists on Katana, can bridge both ways
+      // WBTC: Already exists on Katana, bridge TO destinations first to build balances
       { from: 'base', to: 'katana', token: 'WBTC', direction: 'Base→Katana' },
       { from: 'katana', to: 'base', token: 'WBTC', direction: 'Katana→Base' },
-      { from: 'okx', to: 'katana', token: 'WBTC', direction: 'OKX→Katana' },
-      { from: 'katana', to: 'okx', token: 'WBTC', direction: 'Katana→OKX' },
       { from: 'ethereum', to: 'katana', token: 'WBTC', direction: 'Ethereum→Katana' },
       { from: 'katana', to: 'ethereum', token: 'WBTC', direction: 'Katana→Ethereum' },
+      // Bridge TO OKX first to create WBTC balance, then bridge FROM OKX
+      { from: 'katana', to: 'okx', token: 'WBTC', direction: 'Katana→OKX - creates balance' },
+      { from: 'okx', to: 'katana', token: 'WBTC', direction: 'OKX→Katana - uses created balance' },
 
       // === PHASE 3: Create wrapped tokens on Base/Ethereum (bridge FROM Katana first) ===
       // ASTEST: Katana → Base (creates wrapped ASTEST on Base)

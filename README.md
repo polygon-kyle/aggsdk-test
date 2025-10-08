@@ -11,10 +11,14 @@ This test suite validates bridge operations between:
 
 
 ## ✨ Features
-- ✅ Complete SDK integration with correct initialization
+- ✅ Complete SDK integration with Core API and Native Bridge modules
+- ✅ Automatic route discovery via Core API (LiFi, Agglayer)
+- ✅ Route validation and structure checking
+- ✅ Dynamic approval address detection from routes
 - ✅ Automatic wrapped token address resolution
 - ✅ Token approval handling for ERC20 bridges
 - ✅ Dry-run mode for safe testing
+- ✅ Debug mode for detailed route inspection
 - ✅ Balance checking across all chains
 - ✅ Transaction tracking and status monitoring
 - ✅ Custom ERC20 deployment with upgradeable proxy
@@ -74,15 +78,25 @@ npm run test:dry-run
 npm test
 ```
 
+**Debug Mode (Detailed Logging)**
+```bash
+# Dry run with debug output
+npm run test:debug:dry-run
+
+# Live test with debug output
+npm run test:debug
+```
+
 ## 📚 Available Commands
 
 | Command | Description |
 |---------|-------------|
 | `npm test` | Run full test suite with real transactions |
 | `npm run test:dry-run` | Simulate tests without executing transactions |
+| `npm run test:debug` | Run tests with detailed route inspection logs |
+| `npm run test:debug:dry-run` | Debug mode + dry run (no real transactions) |
 | `npm run check:balances` | Check token balances across all chains |
-| `npm run deploy:custom-token` | Deploy custom ERC20 on Base |
-| `npm run deploy:custom-token:ethereum` | Deploy custom ERC20 on Ethereum |
+| `npm run deploy:astest` | Deploy ASTEST token on Katana |
 | `npm run track:tx <hash> <chainId>` | Track bridge transaction status |
 
 ## 🔧 Configuration
@@ -104,6 +118,7 @@ TEST_CUSTOM_AMOUNT=10
 SLIPPAGE=0.5              # 0.5% slippage tolerance
 GAS_MULTIPLIER=1.2        # 20% gas buffer
 DRY_RUN=false             # Set to true for simulation only
+DEBUG=false               # Set to true for detailed route inspection
 
 # Custom RPC endpoints (optional)
 ETHEREUM_RPC=https://...
@@ -125,6 +140,41 @@ const CHAINS = {
 ```
 
 **Note**: Network IDs are Agglayer-specific identifiers (different from Chain IDs).
+
+## 🔄 SDK Integration & Route Discovery
+
+The test suite uses the Agglayer SDK's **Core API** and **Native Bridge** modules:
+
+### Core API (Primary Method)
+- Discovers routes via multiple providers (LiFi, Agglayer native bridge)
+- Automatically selects optimal route based on cost/speed
+- Validates route structure (steps and transaction data)
+- Extracts approval addresses from route metadata
+- Builds executable transactions from routes
+
+### Native Bridge (Fallback)
+- Used when Core API doesn't support chain pair
+- Direct bridge contract interaction
+- Requires manual approval address management
+
+### Debug Mode Features
+When `DEBUG=true`, the test suite logs:
+- Route structure details (steps count, transaction request)
+- Provider information (lifi, agglayer, etc.)
+- Route type (quote vs route requiring build)
+- Approval addresses extracted from routes
+- Detailed error information on failures
+
+**Example debug output:**
+```json
+{
+  "hasSteps": true,
+  "stepsCount": 1,
+  "hasTransactionRequest": false,
+  "provider": ["lifi"],
+  "isQuote": false
+}
+```
 
 ## 🪙 ASTEST Token Deployment
 
