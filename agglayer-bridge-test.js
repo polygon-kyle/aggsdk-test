@@ -240,7 +240,10 @@ class AggLayerBridgeTest {
         throw new Error(`Token ${tokenSymbol} address not resolved on ${fromChain}`);
       }
 
-      const fromTokenAddress = token[fromChain].address || ethers.constants.AddressZero;
+      const fromTokenAddress = token[fromChain].address;
+      if (!fromTokenAddress) {
+        throw new Error(`Token ${tokenSymbol} address is missing on ${fromChain}`);
+      }
 
       // Destination token address can be null for first-time bridges
       // SDK/Core API will handle wrapped token creation
