@@ -245,33 +245,28 @@ class AggLayerBridgeTest {
         throw new Error(`Token ${tokenSymbol} address is missing on ${fromChain}`);
       }
 
-      // Destination token address can be null for first-time bridges
-      // SDK/Core API will handle wrapped token creation
-      const toTokenAddress = token[toChain].address || ethers.constants.AddressZero;
-      const isFirstTimeBridge = !token[toChain].isNative && token[toChain].address === null;
+      // For native tokens use AddressZero, for ERC20 use actual address
+      // Note: Native Bridge can create wrapped tokens during execution,
+      // but we cannot predict the wrapped token address ahead of time
+      const toTokenAddress = token[toChain].isNative
+        ? ethers.constants.AddressZero
+        : (token[toChain].address || ethers.constants.AddressZero);
 
       console.log(`📍 From: ${fromChain} (Chain ID: ${fromChainConfig.chainId}) - ${fromTokenSymbol}`);
       console.log(`📍 To: ${toChain} (Chain ID: ${toChainConfig.chainId}) - ${toTokenSymbol}`);
       console.log(`💰 Amount: ${ethers.utils.formatUnits(amount, token[fromChain].decimals)}`);
       console.log(`🔑 Wallet: ${this.wallet.address}`);
 
-      if (isFirstTimeBridge) {
-        console.log(`\n🆕 First-time bridge detected!`);
-        console.log(`  Source token: ${fromTokenAddress}`);
-        console.log(`  Destination: Not yet deployed on ${toChain}`);
-        console.log(`  ℹ️  SDK will handle wrapped token creation via route discovery`);
-      }
-
-      // Step 1: Check balance using SDK
-      console.log('\n📊 Step 1: Checking balance...');
-      if (!TEST_CONFIG.skipBalanceCheck) {
-        const hasBalance = await this.checkBalance(fromChain, tokenSymbol, amount);
-        if (!hasBalance) {
-          throw new Error(`Insufficient ${tokenSymbol} balance on ${fromChain}`);
-        }
-      } else {
-        console.log('  ⚠️  Balance check skipped (SKIP_BALANCE_CHECK=true)');
-      }
+      // // Step 1: Check balance using SDK
+      // console.log('\n📊 Step 1: Checking balance...');
+      // if (!TEST_CONFIG.skipBalanceCheck) {
+      //   const hasBalance = await this.checkBalance(fromChain, tokenSymbol, amount);
+      //   if (!hasBalance) {
+      //     throw new Error(`Insufficient ${tokenSymbol} balance on ${fromChain}`);
+      //   }
+      // } else {
+      //   console.log('  ⚠️  Balance check skipped (SKIP_BALANCE_CHECK=true)');
+      // }
 
       // Step 2: Get routes - try Core API first, fallback to Native bridge
       console.log('\n🔍 Step 2: Finding bridge route...');
@@ -280,34 +275,33 @@ class AggLayerBridgeTest {
       let unsignedTx;
       let bridgeMethod = null;
 
+/// ~~~~~~ start of SDK testing ~~~~~~ 
+
+
       try {
-        // Try Core API first (supports third-party bridges)
-        // For first-time bridges, SDK should resolve destination token address
+        // Try Core API first (supports third-party bridges like LiFi)
         const routeRequest = {
           fromChainId: fromChainConfig.chainId,
           toChainId: toChainConfig.chainId,
           fromTokenAddress: fromTokenAddress,
-          toTokenAddress: toTokenAddress, // Can be AddressZero for first-time bridges
+          toTokenAddress: toTokenAddress,
           amount: amount.toString(),
           fromAddress: this.wallet.address,
           slippage: TEST_CONFIG.slippage
         };
 
-        if ((isFirstTimeBridge || fromTokenSymbol !== toTokenSymbol) && process.env.DEBUG) {
+        if (fromTokenSymbol !== toTokenSymbol && process.env.DEBUG) {
           console.log(`  🔍 Bridge route request:`, JSON.stringify({
             ...routeRequest,
             fromToken: fromTokenSymbol,
             toToken: toTokenSymbol,
-            note: isFirstTimeBridge ? 'First-time bridge - destination token will be resolved' : 'Token conversion required'
+            note: 'Token conversion/wrapping required'
           }, null, 2));
         }
 
         const routes = await this.core.getRoutes(routeRequest);
 
         if (!routes || routes.length === 0) {
-          if (isFirstTimeBridge) {
-            throw new Error(`No routes available - ${tokenSymbol} may not be supported for bridging to ${toChain}`);
-          }
           throw new Error('No routes available from Core API');
         }
 
