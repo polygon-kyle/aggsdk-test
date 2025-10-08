@@ -32,28 +32,28 @@ const CHAINS = {
     chainId: 1,
     networkId: 0, // Agglayer network ID
     name: 'Ethereum',
-    rpc: process.env.ETHEREUM_RPC || 'https://mainnet.gateway.tenderly.co',
+    rpc: process.env.ETHEREUM_RPC,
     bridgeAddress: process.env.ETHEREUM_BRIDGE_ADDRESS || '0x2a3DD3EB832aF982ec71669E178424b10Dca2EDe'
   },
   base: {
     chainId: 8453,
     networkId: 10,
     name: 'Base',
-    rpc: process.env.BASE_RPC || 'https://base.gateway.tenderly.co',
+    rpc: process.env.BASE_RPC,
     bridgeAddress: null // Base uses LiFi routes via Core API
   },
   katana: {
     chainId: 747474,
     networkId: 20,
     name: 'Katana',
-    rpc: process.env.KATANA_RPC || 'https://katana.gateway.tenderly.co',
+    rpc: process.env.KATANA_RPC,
     bridgeAddress: process.env.KATANA_BRIDGE_ADDRESS || '0x2a3DD3EB832aF982ec71669E178424b10Dca2EDe'
   },
   okx: {
     chainId: 196,
     networkId: 2,
     name: 'OKX X Layer',
-    rpc: process.env.OKX_RPC || 'https://rpc.xlayer.tech',
+    rpc: process.env.OKX_RPC,
     bridgeAddress: process.env.OKX_BRIDGE_ADDRESS || '0x2a3DD3EB832aF982ec71669E178424b10Dca2EDe'
   }
 };
@@ -90,16 +90,16 @@ const TEST_CONFIG = {
   testAmounts: {
     ETH: process.env.TEST_ETH_AMOUNT
       ? ethers.utils.parseEther(process.env.TEST_ETH_AMOUNT)
-      : ethers.utils.parseEther('0.01'),
+      : ethers.utils.parseEther('0.001'),
     WBTC: process.env.TEST_WBTC_AMOUNT
       ? ethers.utils.parseUnits(process.env.TEST_WBTC_AMOUNT, 8)
-      : ethers.utils.parseUnits('0.001', 8),
+      : ethers.utils.parseUnits('0.0001', 8),
     OKB: process.env.TEST_OKB_AMOUNT
       ? ethers.utils.parseEther(process.env.TEST_OKB_AMOUNT)
-      : ethers.utils.parseEther('1'),
+      : ethers.utils.parseEther('0.01'),
     CUSTOM_ERC20: process.env.TEST_CUSTOM_AMOUNT
       ? ethers.utils.parseEther(process.env.TEST_CUSTOM_AMOUNT)
-      : ethers.utils.parseEther('100')
+      : ethers.utils.parseEther('1')
   },
   dryRun: process.env.DRY_RUN === 'true',
   slippage: parseFloat(process.env.SLIPPAGE || '0.5'),
@@ -195,7 +195,7 @@ class AggLayerBridgeTest {
 
     if (TOKENS.CUSTOM_ERC20.katana.address) {
       console.log(`  ✅ ASTEST token deployed on Katana: ${TOKENS.CUSTOM_ERC20.katana.address}`);
-      console.log(`  ℹ️  Wrapped versions will be auto-resolved by SDK during tests`);
+      console.log(`  ℹ️  Wrapped versions will be auto-resolved by SDK where supported`);
     } else {
       console.log('  ⚠️  ASTEST token not deployed. Tests requiring ASTEST will be skipped.');
       console.log('  Run: npm run deploy:astest to deploy ASTEST on Katana.');
