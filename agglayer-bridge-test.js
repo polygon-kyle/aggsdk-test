@@ -80,7 +80,7 @@ const TOKENS = {
   CUSTOM_ERC20: {
     katana: { address: process.env.CUSTOM_TOKEN_KATANA || null, symbol: 'ASTEST', decimals: 18, isNative: false },
     base: { address: null, symbol: 'ASTEST', decimals: 18, isNative: false },
-    ethereum: { address: '0x264ac90B6B5CA5944F98366FA1B8e3d517207FAa', symbol: 'ASTEST', decimals: 18, isNative: false }
+    ethereum: { address: null, symbol: 'ASTEST', decimals: 18, isNative: false } // Resolved via SDK token mappings
   }
 };
 
@@ -124,6 +124,7 @@ class AggLayerBridgeTest {
     await this.setupWallet();
     await this.initializeSDK();
     await this.checkCustomToken();
+    await this.resolveWrappedTokenAddresses();
 
     console.log('✅ Initialization complete!\n');
   }
@@ -195,12 +196,49 @@ class AggLayerBridgeTest {
 
     if (TOKENS.CUSTOM_ERC20.katana.address) {
       console.log(`  ✅ ASTEST token deployed on Katana: ${TOKENS.CUSTOM_ERC20.katana.address}`);
-      console.log(`  ℹ️  Wrapped versions will be auto-resolved by SDK where supported`);
     } else {
       console.log('  ⚠️  ASTEST token not deployed. Tests requiring ASTEST will be skipped.');
       console.log('  Run: npm run deploy:astest to deploy ASTEST on Katana.');
     }
     console.log('');
+  }
+
+  async resolveWrappedTokenAddresses() {
+    console.log('🔍 Discovering wrapped token addresses from ARC API...\n');
+
+    try {
+      // Resolve wrapped versions of ASTEST if it exists on Katana
+      if (TOKENS.CUSTOM_ERC20.katana.address) {
+        console.log(`  Looking up wrapped versions of ASTEST...`);
+        const mappings = await this.core.getTokenMappings({
+          tokenAddress: TOKENS.CUSTOM_ERC20.katana.address
+        });
+
+        if (mappings && mappings.length > 0) {
+          for (const mapping of mappings) {
+            // Find which chain this wrappedTokenNetwork belongs to
+            const chainEntry = Object.entries(CHAINS).find(
+              ([_, config]) => config.networkId === mapping.wrappedTokenNetwork
+            );
+
+            if (chainEntry) {
+              const [chainName] = chainEntry;
+              // Update our TOKENS config with discovered address
+              TOKENS.CUSTOM_ERC20[chainName].address = mapping.wrappedTokenAddress;
+              console.log(`  ✅ Found wrapped ASTEST on ${chainName}: ${mapping.wrappedTokenAddress}`);
+            }
+          }
+        } else {
+          console.log(`  ℹ️  No wrapped versions found yet (bridge TO other chains first)`);
+        }
+      }
+
+      // Could add more tokens here (WBTC, etc.) if needed
+      console.log('');
+    } catch (error) {
+      console.log(`  ⚠️  Could not fetch token mappings: ${error.message}`);
+      console.log(`  Continuing with hardcoded addresses...\n`);
+    }
   }
 
   // Helper to get provider for a specific chain using SDK
