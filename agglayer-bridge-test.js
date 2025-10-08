@@ -51,7 +51,7 @@ const CHAINS = {
   },
   okx: {
     chainId: 196,
-    networkId: 2,
+    networkId: 3, // Corrected via SDK validation (was 2)
     name: 'OKX X Layer',
     rpc: process.env.OKX_RPC,
     bridgeAddress: process.env.OKX_BRIDGE_ADDRESS || '0x2a3DD3EB832aF982ec71669E178424b10Dca2EDe'
@@ -201,6 +201,48 @@ class AggLayerBridgeTest {
       console.log('  Run: npm run deploy:astest to deploy ASTEST on Katana.');
     }
     console.log('');
+  }
+
+  async validateChainConfiguration() {
+    console.log('✅ Validating chain configuration with SDK...\n');
+
+    try {
+      // Fetch all chains from SDK
+      const response = await this.core.getAllChains();
+
+      if (!response || !response.chains || response.chains.length === 0) {
+        console.log('  ⚠️  No chains returned from SDK, skipping validation\n');
+        return;
+      }
+
+      // Build lookup map of SDK chains by chainId
+      const sdkChainMap = new Map();
+      response.chains.forEach(chain => {
+        sdkChainMap.set(chain.chainId, chain);
+      });
+
+      // Validate each of our configured chains
+      for (const [chainName, config] of Object.entries(CHAINS)) {
+        const sdkChain = sdkChainMap.get(config.chainId);
+
+        if (!sdkChain) {
+          console.log(`  ⚠️  ${chainName}: chainId ${config.chainId} not found in SDK registry`);
+          continue;
+        }
+
+        // Check if networkId matches
+        if (sdkChain.networkId !== config.networkId) {
+          console.log(`  ⚠️  ${chainName}: networkId mismatch! Ours: ${config.networkId}, SDK: ${sdkChain.networkId}`);
+        } else {
+          console.log(`  ✅ ${chainName}: Configuration validated (chainId: ${config.chainId}, networkId: ${config.networkId})`);
+        }
+      }
+
+      console.log('');
+    } catch (error) {
+      console.log(`  ⚠️  Could not validate chains: ${error.message}`);
+      console.log(`  Continuing with local configuration...\n`);
+    }
   }
 
   async resolveWrappedTokenAddresses() {
@@ -1120,6 +1162,9 @@ async function main() {
 
   try {
     await tester.initialize();
+
+    // Validate chain configuration with SDK
+    await tester.validateChainConfiguration();
 
     // Check for pending claims BEFORE running tests
     await tester.checkForExistingClaims();
