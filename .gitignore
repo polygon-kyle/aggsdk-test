@@ -6,6 +6,9 @@
 # Node modules
 node_modules/
 
+# SDK (local development)
+sdk/
+
 # Hardhat
 cache/
 artifacts/
