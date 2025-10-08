@@ -69,7 +69,7 @@ const TOKENS = {
   WBTC: {
     ethereum: { address: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', symbol: 'WBTC', decimals: 8, isNative: false },
     base: { address: '0x0555E30da8f98308EdB960aa94C0Db47230d2B9c', symbol: 'WBTC', decimals: 8, isNative: false },
-    katana: { address: null, symbol: 'WBTC', decimals: 8, isNative: false },
+    katana: { address: '0x0913DA6Da4b42f538B445599b46Bb4622342Cf52', symbol: 'WBTC', decimals: 8, isNative: false },
     okx: { address: '0xea034fb02eb1808c2cc3adbc15f447b93cbe08e1', symbol: 'WBTC', decimals: 8, isNative: false }
   },
   OKB: {
@@ -114,6 +114,7 @@ class AggLayerBridgeTest {
     this.core = null;
     this.native = null;
     this.testResults = [];
+    this.pendingClaims = []; // Track bridges that need claiming
   }
 
   async initialize() {
@@ -158,6 +159,7 @@ class AggLayerBridgeTest {
           ? { name: 'OKB', symbol: 'OKB', decimals: 18 }
           : { name: 'Ether', symbol: 'ETH', decimals: 18 },
         bridgeAddress: config.bridgeAddress,
+        proofApiUrl: 'https://api-gateway.polygon.technology/api/v3/proof/mainnet/', // Required for claiming
         isTestnet: false
       }));
 
@@ -208,7 +210,17 @@ class AggLayerBridgeTest {
   }
 
   async testBridgeScenario(fromChain, toChain, tokenSymbol, direction) {
-    const testName = `${tokenSymbol}: ${fromChain} → ${toChain}`;
+    const token = TOKENS[tokenSymbol];
+
+    // Get actual token symbols on each chain (e.g., ETH on most chains, but WETH on OKX)
+    const fromTokenSymbol = token[fromChain].symbol;
+    const toTokenSymbol = token[toChain].symbol;
+
+    // Create test name showing actual tokens being used
+    const testName = fromTokenSymbol === toTokenSymbol
+      ? `${fromTokenSymbol}: ${fromChain} → ${toChain}`
+      : `${fromTokenSymbol}→${toTokenSymbol}: ${fromChain} → ${toChain}`;
+
     console.log(`\n${'='.repeat(80)}`);
     console.log(`🔄 Test: ${testName}`);
     console.log(`${'='.repeat(80)}`);
@@ -216,7 +228,6 @@ class AggLayerBridgeTest {
     try {
       const fromChainConfig = CHAINS[fromChain];
       const toChainConfig = CHAINS[toChain];
-      const token = TOKENS[tokenSymbol];
       const amount = TEST_CONFIG.testAmounts[tokenSymbol];
 
       // Validate token configuration
@@ -224,17 +235,29 @@ class AggLayerBridgeTest {
         throw new Error(`Token ${tokenSymbol} not configured for ${fromChain} or ${toChain}`);
       }
 
+      // Validate source chain has token address (must exist to bridge FROM)
       if (!token[fromChain].isNative && token[fromChain].address === null) {
         throw new Error(`Token ${tokenSymbol} address not resolved on ${fromChain}`);
       }
 
       const fromTokenAddress = token[fromChain].address || ethers.constants.AddressZero;
-      const toTokenAddress = token[toChain].address || ethers.constants.AddressZero;
 
-      console.log(`📍 From: ${fromChain} (Chain ID: ${fromChainConfig.chainId})`);
-      console.log(`📍 To: ${toChain} (Chain ID: ${toChainConfig.chainId})`);
-      console.log(`💰 Token: ${tokenSymbol} (${ethers.utils.formatUnits(amount, token[fromChain].decimals)})`);
+      // Destination token address can be null for first-time bridges
+      // SDK/Core API will handle wrapped token creation
+      const toTokenAddress = token[toChain].address || ethers.constants.AddressZero;
+      const isFirstTimeBridge = !token[toChain].isNative && token[toChain].address === null;
+
+      console.log(`📍 From: ${fromChain} (Chain ID: ${fromChainConfig.chainId}) - ${fromTokenSymbol}`);
+      console.log(`📍 To: ${toChain} (Chain ID: ${toChainConfig.chainId}) - ${toTokenSymbol}`);
+      console.log(`💰 Amount: ${ethers.utils.formatUnits(amount, token[fromChain].decimals)}`);
       console.log(`🔑 Wallet: ${this.wallet.address}`);
+
+      if (isFirstTimeBridge) {
+        console.log(`\n🆕 First-time bridge detected!`);
+        console.log(`  Source token: ${fromTokenAddress}`);
+        console.log(`  Destination: Not yet deployed on ${toChain}`);
+        console.log(`  ℹ️  SDK will handle wrapped token creation via route discovery`);
+      }
 
       // Step 1: Check balance using SDK
       console.log('\n📊 Step 1: Checking balance...');
@@ -249,34 +272,94 @@ class AggLayerBridgeTest {
 
       // Step 2: Get routes - try Core API first, fallback to Native bridge
       console.log('\n🔍 Step 2: Finding bridge route...');
+      console.log(`  Bridge: ${fromTokenSymbol} (${fromTokenAddress}) → ${toTokenSymbol} (${toTokenAddress})`);
+
       let unsignedTx;
       let bridgeMethod = null;
 
       try {
         // Try Core API first (supports third-party bridges)
-        const routes = await this.core.getRoutes({
+        // For first-time bridges, SDK should resolve destination token address
+        const routeRequest = {
           fromChainId: fromChainConfig.chainId,
           toChainId: toChainConfig.chainId,
           fromTokenAddress: fromTokenAddress,
-          toTokenAddress: toTokenAddress,
+          toTokenAddress: toTokenAddress, // Can be AddressZero for first-time bridges
           amount: amount.toString(),
           fromAddress: this.wallet.address,
           slippage: TEST_CONFIG.slippage
-        });
+        };
+
+        if ((isFirstTimeBridge || fromTokenSymbol !== toTokenSymbol) && process.env.DEBUG) {
+          console.log(`  🔍 Bridge route request:`, JSON.stringify({
+            ...routeRequest,
+            fromToken: fromTokenSymbol,
+            toToken: toTokenSymbol,
+            note: isFirstTimeBridge ? 'First-time bridge - destination token will be resolved' : 'Token conversion required'
+          }, null, 2));
+        }
+
+        const routes = await this.core.getRoutes(routeRequest);
 
         if (!routes || routes.length === 0) {
+          if (isFirstTimeBridge) {
+            throw new Error(`No routes available - ${tokenSymbol} may not be supported for bridging to ${toChain}`);
+          }
           throw new Error('No routes available from Core API');
         }
 
         bridgeMethod = 'Core API';
         console.log(`  ✅ Found ${routes.length} route(s) via Core API`);
         const bestRoute = routes[0];
-        console.log(`  📍 Route: ${bestRoute.protocol || 'Unknown'}`);
 
-        // Step 3: Approve token if needed
+        // Validate route structure
+        if (!bestRoute.steps || bestRoute.steps.length === 0) {
+          if (!bestRoute.transactionRequest) {
+            throw new Error('Route missing both steps and transactionRequest - invalid route structure');
+          }
+        }
+
+        // Debug logging for route inspection
+        if (process.env.DEBUG) {
+          console.log(`  🔍 Route structure:`, JSON.stringify({
+            hasSteps: !!bestRoute.steps && bestRoute.steps.length > 0,
+            stepsCount: bestRoute.steps?.length || 0,
+            hasTransactionRequest: !!bestRoute.transactionRequest,
+            provider: bestRoute.provider,
+            isQuote: bestRoute.isQuote
+          }, null, 2));
+        }
+
+        console.log(`  📍 Provider: ${bestRoute.provider?.join(', ') || 'Unknown'}`);
+        console.log(`  📍 Route type: ${bestRoute.isQuote ? 'Quote (executable)' : 'Route (requires build)'}`);
+
+        // Step 3: Determine approval address from route
+        let approvalAddress = null;
+        if (bestRoute.steps && bestRoute.steps.length > 0) {
+          // Get approval address from first step's estimate
+          approvalAddress = bestRoute.steps[0].estimate?.approvalAddress;
+        }
+
+        // Validate approval address is a valid Ethereum address
+        if (approvalAddress && !approvalAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+          console.log(`  ⚠️  Invalid approval address from route: ${approvalAddress}`);
+          approvalAddress = null;
+        }
+
+        // Fallback to bridge address if no approval address in route
+        if (!approvalAddress && fromChainConfig.bridgeAddress) {
+          approvalAddress = fromChainConfig.bridgeAddress;
+        }
+
+        // Approve token if needed
         if (!token[fromChain].isNative && fromTokenAddress !== ethers.constants.AddressZero) {
-          console.log('\n✅ Step 3: Approving token...');
-          await this.approveToken(fromChain, fromTokenAddress, fromChainConfig.bridgeAddress, amount);
+          if (!approvalAddress) {
+            throw new Error(`No approval address found for token approval. Route missing approvalAddress and chain has no bridge address.`);
+          } else {
+            console.log('\n✅ Step 3: Approving token...');
+            console.log(`  Spender: ${approvalAddress}`);
+            await this.approveToken(fromChain, fromTokenAddress, approvalAddress, amount);
+          }
         } else {
           console.log('\n⏭️  Step 3: Skipping approval (native token)');
         }
@@ -287,7 +370,10 @@ class AggLayerBridgeTest {
 
       } catch (error) {
         // Fallback to Native bridge
-        console.log('  ⚠️  Core API unavailable or chains not supported');
+        console.log(`  ⚠️  Core API failed: ${error.message}`);
+        if (process.env.DEBUG) {
+          console.log('  🔍 Error details:', error);
+        }
         console.log('  🔄 Attempting Native Bridge module...');
 
         bridgeMethod = 'Native Bridge';
@@ -313,12 +399,114 @@ class AggLayerBridgeTest {
         }, this.wallet.address);
       }
 
+      // WORKAROUND: SDK returns "gas" but ethers v5 expects "gasLimit"
+      if (unsignedTx.gas && !unsignedTx.gasLimit) {
+        unsignedTx.gasLimit = unsignedTx.gas;
+        delete unsignedTx.gas;
+      }
+
+      // WORKAROUND: SDK returns numeric string nonce, ethers v5 expects hex
+      if (unsignedTx.nonce && typeof unsignedTx.nonce === 'string' && !unsignedTx.nonce.startsWith('0x')) {
+        unsignedTx.nonce = ethers.utils.hexValue(parseInt(unsignedTx.nonce));
+      }
+
+      // WORKAROUND: Normalize all transaction fields to proper types for ethers v5
+      const normalizedTx = {
+        ...unsignedTx,
+        to: unsignedTx.to,
+        data: unsignedTx.data,
+        value: unsignedTx.value ? ethers.BigNumber.from(unsignedTx.value).toHexString() : '0x0',
+        gasLimit: unsignedTx.gasLimit ? ethers.BigNumber.from(unsignedTx.gasLimit).toHexString() : undefined,
+        gasPrice: unsignedTx.gasPrice ? ethers.BigNumber.from(unsignedTx.gasPrice).toHexString() : undefined,
+        nonce: unsignedTx.nonce,
+        chainId: unsignedTx.chainId ? parseInt(unsignedTx.chainId) : fromChainConfig.chainId
+      };
+
+      // Remove undefined fields
+      Object.keys(normalizedTx).forEach(key => {
+        if (normalizedTx[key] === undefined) {
+          delete normalizedTx[key];
+        }
+      });
+
+      unsignedTx = normalizedTx;
+
       console.log(`  To: ${unsignedTx.to}`);
       console.log(`  Value: ${ethers.utils.formatEther(unsignedTx.value || '0')} ETH`);
       console.log(`  Data: ${unsignedTx.data.substring(0, 66)}...`);
 
       // Step 5: Execute transaction
       const result = await this.executeTransaction(unsignedTx, fromChain);
+
+      // Track for claiming - fetch depositCount from SDK for all successful bridges
+      if (!result.mock) {
+        console.log(`  🔍 Fetching depositCount from SDK...`);
+
+        try {
+          // Query recent transactions to find this one
+          const txResponse = await this.core.getTransactions({
+            address: this.wallet.address,
+            limit: 20
+          });
+
+          // Find our transaction
+          const ourTx = txResponse.transactions.find(tx =>
+            tx.transactionHash.toLowerCase() === result.hash.toLowerCase()
+          );
+
+          if (ourTx && ourTx.depositCount !== null) {
+            this.pendingClaims.push({
+              testName,
+              txHash: result.hash,
+              depositCount: ourTx.depositCount,
+              fromChain,
+              fromChainId: fromChainConfig.chainId,
+              fromNetworkId: fromChainConfig.networkId,
+              toChain,
+              toChainId: toChainConfig.chainId,
+              toNetworkId: toChainConfig.networkId,
+              token: tokenSymbol,
+              amount: ethers.utils.formatUnits(amount, token[fromChain].decimals),
+              timestamp: new Date().toISOString()
+            });
+            console.log(`  📋 Added to pending claims (depositCount: ${ourTx.depositCount})`);
+          } else {
+            console.log(`  ⚠️  Transaction not yet indexed by API or no depositCount - will retry at claim time`);
+            // Still add to pending claims, we'll fetch depositCount later
+            this.pendingClaims.push({
+              testName,
+              txHash: result.hash,
+              depositCount: null, // Will be fetched at claim time
+              fromChain,
+              fromChainId: fromChainConfig.chainId,
+              fromNetworkId: fromChainConfig.networkId,
+              toChain,
+              toChainId: toChainConfig.chainId,
+              toNetworkId: toChainConfig.networkId,
+              token: tokenSymbol,
+              amount: ethers.utils.formatUnits(amount, token[fromChain].decimals),
+              timestamp: new Date().toISOString()
+            });
+          }
+        } catch (error) {
+          console.log(`  ⚠️  Could not fetch transaction from API: ${error.message}`);
+          // Still add to pending claims
+          this.pendingClaims.push({
+            testName,
+            txHash: result.hash,
+            depositCount: null,
+            fromChain,
+            fromChainId: fromChainConfig.chainId,
+            fromNetworkId: fromChainConfig.networkId,
+            toChain,
+            toChainId: toChainConfig.chainId,
+            toNetworkId: toChainConfig.networkId,
+            token: tokenSymbol,
+            amount: ethers.utils.formatUnits(amount, token[fromChain].decimals),
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
 
       this.testResults.push({
         test: testName,
@@ -328,8 +516,10 @@ class AggLayerBridgeTest {
         blockNumber: result.blockNumber,
         gasUsed: result.gasUsed?.toString(),
         fromChain,
+        fromToken: fromTokenSymbol,
         toChain,
-        token: tokenSymbol,
+        toToken: toTokenSymbol,
+        tokenConfig: tokenSymbol,
         amount: ethers.utils.formatUnits(amount, token[fromChain].decimals),
         timestamp: new Date().toISOString()
       });
@@ -347,8 +537,10 @@ class AggLayerBridgeTest {
         status: 'FAILED',
         error: error.message,
         fromChain,
+        fromToken: fromTokenSymbol,
         toChain,
-        token: tokenSymbol,
+        toToken: toTokenSymbol,
+        tokenConfig: tokenSymbol,
         timestamp: new Date().toISOString()
       });
     }
@@ -410,12 +602,42 @@ class AggLayerBridgeTest {
         this.wallet.address
       );
 
+      // WORKAROUND: SDK returns "gas" but ethers v5 expects "gasLimit"
+      if (approveTx.gas && !approveTx.gasLimit) {
+        approveTx.gasLimit = approveTx.gas;
+        delete approveTx.gas;
+      }
+
+      // WORKAROUND: SDK returns numeric string nonce, ethers v5 expects hex
+      if (approveTx.nonce && typeof approveTx.nonce === 'string' && !approveTx.nonce.startsWith('0x')) {
+        approveTx.nonce = ethers.utils.hexValue(parseInt(approveTx.nonce));
+      }
+
+      // WORKAROUND: Normalize all transaction fields to proper types for ethers v5
+      const normalizedApproveTx = {
+        ...approveTx,
+        to: approveTx.to,
+        data: approveTx.data,
+        value: approveTx.value ? ethers.BigNumber.from(approveTx.value).toHexString() : '0x0',
+        gasLimit: approveTx.gasLimit ? ethers.BigNumber.from(approveTx.gasLimit).toHexString() : undefined,
+        gasPrice: approveTx.gasPrice ? ethers.BigNumber.from(approveTx.gasPrice).toHexString() : undefined,
+        nonce: approveTx.nonce,
+        chainId: approveTx.chainId ? parseInt(approveTx.chainId) : chainId
+      };
+
+      // Remove undefined fields
+      Object.keys(normalizedApproveTx).forEach(key => {
+        if (normalizedApproveTx[key] === undefined) {
+          delete normalizedApproveTx[key];
+        }
+      });
+
       // Get provider and connect wallet
       const provider = this.getProviderForChain(chainId);
       const connectedWallet = this.wallet.connect(provider);
 
       console.log(`  📝 Approving ${amount.toString()}...`);
-      const txResponse = await connectedWallet.sendTransaction(approveTx);
+      const txResponse = await connectedWallet.sendTransaction(normalizedApproveTx);
       console.log(`  ⏳ Approval TX: ${txResponse.hash}`);
 
       const receipt = await txResponse.wait();
@@ -486,6 +708,203 @@ class AggLayerBridgeTest {
     };
   }
 
+  async checkForExistingClaims() {
+    console.log('\n🔍 Checking for pending claims via SDK...\n');
+
+    try {
+      // Query recent transactions from SDK
+      const response = await this.core.getTransactions({
+        limit: 100,
+        sort: 'desc'
+      });
+
+      const transactions = response.transactions || [];
+      console.log(`  📊 Found ${transactions.length} recent transactions from SDK\n`);
+
+      if (transactions.length === 0) {
+        console.log('  No transactions found.\n');
+        return;
+      }
+
+      // Filter for BRIDGED status transactions (ready to claim but not yet claimed)
+      const potentialClaims = transactions.filter(tx =>
+        tx.status === 'BRIDGED' &&
+        tx.protocols &&
+        tx.protocols.includes('agglayer')
+      );
+
+      if (potentialClaims.length === 0) {
+        console.log('  ✅ No pending bridge transactions found.\n');
+        return;
+      }
+
+      console.log(`  📋 Found ${potentialClaims.length} BRIDGED transaction(s) to check:\n`);
+
+      // Build list of claims - SDK status already indicates they need claiming
+      const needsClaiming = [];
+      for (const tx of potentialClaims) {
+        if (!tx.sending || !tx.receiving || tx.receiving.length === 0) continue;
+
+        const fromChainId = tx.sending.network.chainId;
+        const toChainId = tx.receiving[0].network.chainId;
+
+        // Find chain configs
+        const fromChainEntry = Object.entries(CHAINS).find(([_, c]) => c.chainId === fromChainId);
+        const toChainEntry = Object.entries(CHAINS).find(([_, c]) => c.chainId === toChainId);
+
+        if (!fromChainEntry || !toChainEntry) {
+          console.log(`  ⚠️  Skipping transaction with unknown chains (${fromChainId} -> ${toChainId})\n`);
+          continue;
+        }
+
+        const [fromChainName, fromChainConfig] = fromChainEntry;
+        const [toChainName, toChainConfig] = toChainEntry;
+
+        console.log(`  Found: ${fromChainName} → ${toChainName}`);
+        console.log(`    TX: ${tx.transactionHash}`);
+        console.log(`    Deposit Count: ${tx.depositCount}`);
+        console.log(`    Status: ${tx.status}`);
+        console.log(`    ⏳ Ready to claim!\n`);
+
+        needsClaiming.push({
+          testName: `${fromChainName} → ${toChainName}`,
+          txHash: tx.transactionHash,
+          bridgeHash: tx.bridgeHash,
+          fromChain: fromChainName,
+          toChain: toChainName,
+          fromChainId: fromChainConfig.chainId,
+          fromNetworkId: fromChainConfig.networkId,
+          toChainId: toChainConfig.chainId,
+          toNetworkId: toChainConfig.networkId,
+          amount: tx.sending.amount,
+          timestamp: tx.timestamp,
+          depositCount: tx.depositCount
+        });
+      }
+
+      if (needsClaiming.length === 0) {
+        console.log('  ✅ All bridges have been claimed!\n');
+        return;
+      }
+
+      // Automatically claim all ready transactions
+      console.log(`\n💡 Found ${needsClaiming.length} bridge(s) ready to claim before running new tests!\n`);
+      console.log('🚀 Automatically claiming all ready bridges...\n');
+
+      await this.executeClaims(needsClaiming);
+      console.log('\n✅ Pre-test claims processed. Continuing with tests...\n');
+
+    } catch (error) {
+      console.error('  ⚠️  Error checking for existing claims:', error.message);
+      console.log('  Continuing with tests...\n');
+    }
+  }
+
+  async checkAndProcessClaims() {
+    if (this.pendingClaims.length === 0) {
+      return;
+    }
+
+    console.log('\n\n' + '='.repeat(80));
+    console.log('🔔 PENDING CLAIMS DETECTED');
+    console.log('='.repeat(80) + '\n');
+
+    console.log(`Found ${this.pendingClaims.length} bridge(s) that need to be claimed on destination chains.\n`);
+
+    // Automatically attempt to claim all pending transactions
+    // The SDK's buildClaimAssetFromHash will handle checking if ready and extracting depositCount
+    console.log(`🚀 Automatically claiming ${this.pendingClaims.length} bridge transaction(s)...\n`);
+
+    await this.executeClaims(this.pendingClaims);
+    console.log('\n✅ Post-test claim processing complete!\n');
+  }
+
+  async executeClaims(claims) {
+    console.log('\n🚀 Executing claims...\n');
+
+    for (const claim of claims) {
+      console.log(`\n${'='.repeat(80)}`);
+      console.log(`🎁 Claiming: ${claim.testName}`);
+      console.log(`${'='.repeat(80)}`);
+
+      try {
+        console.log(`  Source TX: ${claim.txHash}`);
+        console.log(`  Destination Chain: ${claim.toChain}`);
+
+        // Get depositCount if not already available
+        let depositCount = claim.depositCount;
+        if (depositCount === null || depositCount === undefined) {
+          console.log(`  🔍 Fetching depositCount from SDK...`);
+          const txResponse = await this.core.getTransactions({
+            address: this.wallet.address,
+            limit: 50
+          });
+
+          const ourTx = txResponse.transactions.find(tx =>
+            tx.transactionHash.toLowerCase() === claim.txHash.toLowerCase()
+          );
+
+          if (!ourTx || ourTx.depositCount === null) {
+            throw new Error('Transaction not found in SDK or depositCount not available yet');
+          }
+
+          depositCount = ourTx.depositCount;
+          console.log(`  📋 Found depositCount: ${depositCount}`);
+        }
+
+        // Build claim transaction using Core API (works for all AggLayer transactions)
+        console.log(`  🔨 Building claim transaction via Core API...`);
+        const claimTx = await this.core.getClaimUnsignedTransaction({
+          sourceNetworkId: claim.fromNetworkId,
+          depositCount: depositCount
+        });
+
+        // Normalize transaction
+        const normalizedClaimTx = {
+          ...claimTx,
+          to: claimTx.to,
+          data: claimTx.data,
+          value: claimTx.value ? ethers.BigNumber.from(claimTx.value).toHexString() : '0x0',
+          gasLimit: claimTx.gasLimit ? ethers.BigNumber.from(claimTx.gasLimit).toHexString() : claimTx.gas ? ethers.BigNumber.from(claimTx.gas).toHexString() : undefined,
+          gasPrice: claimTx.gasPrice ? ethers.BigNumber.from(claimTx.gasPrice).toHexString() : undefined,
+          nonce: claimTx.nonce && typeof claimTx.nonce === 'string' && !claimTx.nonce.startsWith('0x')
+            ? ethers.utils.hexValue(parseInt(claimTx.nonce))
+            : claimTx.nonce,
+          chainId: claimTx.chainId ? parseInt(claimTx.chainId) : claim.toChainId
+        };
+
+        // Remove undefined and SDK-specific fields
+        delete normalizedClaimTx.gas;
+        Object.keys(normalizedClaimTx).forEach(key => {
+          if (normalizedClaimTx[key] === undefined) {
+            delete normalizedClaimTx[key];
+          }
+        });
+
+        // Get provider and connect wallet
+        const provider = this.getProviderForChain(claim.toChainId);
+        const connectedWallet = this.wallet.connect(provider);
+
+        // Execute claim
+        console.log(`  📝 Claiming ${claim.amount} ${claim.token || 'tokens'}...`);
+        const txResponse = await connectedWallet.sendTransaction(normalizedClaimTx);
+        console.log(`  ⏳ Claim TX: ${txResponse.hash}`);
+
+        const receipt = await txResponse.wait();
+        console.log(`  ✅ Claim confirmed in block ${receipt.blockNumber}`);
+        console.log(`  ⛽ Gas used: ${receipt.gasUsed.toString()}`);
+
+      } catch (error) {
+        console.error(`  ❌ Claim failed: ${error.message}`);
+        if (process.env.DEBUG && error.stack) {
+          console.error('Stack trace:', error.stack);
+        }
+      }
+    }
+
+    console.log('\n✅ All claims processed!\n');
+  }
+
   async runAllTests() {
     console.log('\n🧪 Starting Comprehensive Bridge Tests\n');
     console.log(`Mode: ${TEST_CONFIG.dryRun ? 'DRY RUN (No real transactions)' : 'LIVE (Real transactions)'}`);
@@ -493,31 +912,42 @@ class AggLayerBridgeTest {
     console.log(`Balance checks: ${TEST_CONFIG.skipBalanceCheck ? 'DISABLED' : 'ENABLED'}`);
     console.log('');
 
-    // Test scenarios
+    // Test scenarios - ORDERED TO CREATE WRAPPED TOKENS FIRST
+    // Strategy: Bridge TO destination first (creates wrapped), then bridge back
     const testScenarios = [
-      // Base ↔ Katana
+      // === PHASE 1: Native tokens that exist everywhere ===
+      // ETH - exists natively on all chains (except OKX uses WETH)
       { from: 'base', to: 'katana', token: 'ETH', direction: 'Base→Katana' },
       { from: 'katana', to: 'base', token: 'ETH', direction: 'Katana→Base' },
+      // OKX uses WETH (not native ETH) - testing with SDK workarounds
+      { from: 'okx', to: 'katana', token: 'ETH', direction: 'OKX(WETH)→Katana' },
+      { from: 'katana', to: 'okx', token: 'ETH', direction: 'Katana(ETH)→OKX(WETH)' },
+      { from: 'ethereum', to: 'katana', token: 'ETH', direction: 'Ethereum→Katana' },
+      { from: 'katana', to: 'ethereum', token: 'ETH', direction: 'Katana→Ethereum' },
+
+      // === PHASE 2: Create wrapped tokens on Katana (bridge TO Katana first) ===
+      // COMMENTED: OKB bridging not supported - no route available (see bug-3.md)
+      // { from: 'okx', to: 'katana', token: 'OKB', direction: 'OKX→Katana (creates wrapped)' },
+      // { from: 'katana', to: 'okx', token: 'OKB', direction: 'Katana→OKX (uses wrapped)' },
+
+      // WBTC: Already exists on Katana, can bridge both ways
       { from: 'base', to: 'katana', token: 'WBTC', direction: 'Base→Katana' },
       { from: 'katana', to: 'base', token: 'WBTC', direction: 'Katana→Base' },
-      { from: 'base', to: 'katana', token: 'CUSTOM_ERC20', direction: 'Base→Katana' },
-      { from: 'katana', to: 'base', token: 'CUSTOM_ERC20', direction: 'Katana→Base' },
-
-      // Katana ↔ OKX
-      { from: 'katana', to: 'okx', token: 'ETH', direction: 'Katana→OKX' },
-      { from: 'okx', to: 'katana', token: 'ETH', direction: 'OKX→Katana' },
-      { from: 'katana', to: 'okx', token: 'OKB', direction: 'Katana→OKX' },
-      { from: 'okx', to: 'katana', token: 'OKB', direction: 'OKX→Katana' },
-      { from: 'katana', to: 'okx', token: 'WBTC', direction: 'Katana→OKX' },
       { from: 'okx', to: 'katana', token: 'WBTC', direction: 'OKX→Katana' },
-
-      // Katana ↔ Ethereum
-      { from: 'katana', to: 'ethereum', token: 'ETH', direction: 'Katana→Ethereum' },
-      { from: 'ethereum', to: 'katana', token: 'ETH', direction: 'Ethereum→Katana' },
-      { from: 'katana', to: 'ethereum', token: 'WBTC', direction: 'Katana→Ethereum' },
+      { from: 'katana', to: 'okx', token: 'WBTC', direction: 'Katana→OKX' },
       { from: 'ethereum', to: 'katana', token: 'WBTC', direction: 'Ethereum→Katana' },
-      { from: 'katana', to: 'ethereum', token: 'CUSTOM_ERC20', direction: 'Katana→Ethereum' },
-      { from: 'ethereum', to: 'katana', token: 'CUSTOM_ERC20', direction: 'Ethereum→Katana' }
+      { from: 'katana', to: 'ethereum', token: 'WBTC', direction: 'Katana→Ethereum' },
+
+      // === PHASE 3: Create wrapped tokens on Base/Ethereum (bridge FROM Katana first) ===
+      // ASTEST: Katana → Base (creates wrapped ASTEST on Base)
+      { from: 'katana', to: 'base', token: 'CUSTOM_ERC20', direction: 'Katana→Base (creates wrapped)' },
+      // Bridge back: Base → Katana (wrapped token now exists on Base)
+      { from: 'base', to: 'katana', token: 'CUSTOM_ERC20', direction: 'Base→Katana (uses wrapped)' },
+
+      // ASTEST: Katana → Ethereum (creates wrapped ASTEST on Ethereum)
+      { from: 'katana', to: 'ethereum', token: 'CUSTOM_ERC20', direction: 'Katana→Ethereum (creates wrapped)' },
+      // Bridge back: Ethereum → Katana (wrapped token now exists on Ethereum)
+      { from: 'ethereum', to: 'katana', token: 'CUSTOM_ERC20', direction: 'Ethereum→Katana (uses wrapped)' }
     ];
 
     // Execute all test scenarios
@@ -527,14 +957,23 @@ class AggLayerBridgeTest {
 
       // Skip tests if token not deployed
       if (scenario.token === 'CUSTOM_ERC20' && !TOKENS.CUSTOM_ERC20.katana.address) {
-        console.log(`⏭️  Skipping ASTEST: ${scenario.from} → ${scenario.to} (token not deployed)`);
+        const token = TOKENS[scenario.token];
+        const fromTokenSymbol = token[scenario.from]?.symbol || 'ASTEST';
+        const toTokenSymbol = token[scenario.to]?.symbol || 'ASTEST';
+        const testName = fromTokenSymbol === toTokenSymbol
+          ? `${fromTokenSymbol}: ${scenario.from} → ${scenario.to}`
+          : `${fromTokenSymbol}→${toTokenSymbol}: ${scenario.from} → ${scenario.to}`;
+
+        console.log(`⏭️  Skipping ${testName} (token not deployed)`);
         this.testResults.push({
-          test: `ASTEST: ${scenario.from} → ${scenario.to}`,
+          test: testName,
           status: 'SKIPPED',
           reason: 'Token not deployed',
           fromChain: scenario.from,
+          fromToken: fromTokenSymbol,
           toChain: scenario.to,
-          token: scenario.token,
+          toToken: toTokenSymbol,
+          tokenConfig: scenario.token,
           timestamp: new Date().toISOString()
         });
         continue;
@@ -644,10 +1083,23 @@ async function main() {
 
   try {
     await tester.initialize();
+
+    // Check for pending claims BEFORE running tests
+    await tester.checkForExistingClaims();
+
     await tester.runAllTests();
     await tester.generateReport();
 
     console.log('🎉 All tests completed!\n');
+
+    // Wait 3 minutes for transactions to finalize before checking claims
+    if (tester.pendingClaims.length > 0) {
+      console.log(`⏳ Waiting 3 minutes for ${tester.pendingClaims.length} bridge transaction(s) to finalize...\n`);
+      await new Promise(resolve => setTimeout(resolve, 180000)); // 3 minutes
+    }
+
+    // Check and process any pending claims from THIS run
+    await tester.checkAndProcessClaims();
 
   } catch (error) {
     console.error('\n💥 Test suite failed:', error.message);
