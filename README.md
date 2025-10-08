@@ -11,16 +11,23 @@ This test suite validates bridge operations between:
 
 
 ## ✨ Features
-- ✅ Complete SDK integration with Core API and Native Bridge modules
-- ✅ Automatic route discovery via Core API (LiFi, Agglayer)
+
+### SDK-First Architecture
+- ✅ Built with **AggLayer SDK v0.1.0-beta** following official best practices
+- ✅ **Core Module** for route discovery via ARC API (supports LiFi, Agglayer Native Bridge)
+- ✅ **Native Module** for direct blockchain interactions and bridge operations
+- ✅ Automatic chain validation using `core.getAllChains()`
+- ✅ Auto-discovery of wrapped token addresses via `core.getTokenMappings()`
+- ✅ Transaction status tracking via `core.getTransactions()`
+- ✅ Smart defaults with progressive customization
+
+### Testing Capabilities
 - ✅ Route validation and structure checking
 - ✅ Dynamic approval address detection from routes
-- ✅ Automatic wrapped token address resolution
 - ✅ Token approval handling for ERC20 bridges
 - ✅ Dry-run mode for safe testing
 - ✅ Debug mode for detailed route inspection
 - ✅ Balance checking across all chains
-- ✅ Transaction tracking and status monitoring
 - ✅ Custom ERC20 deployment with upgradeable proxy
 - ✅ Comprehensive test reporting with JSON export
 - ✅ Gas estimation and slippage configuration
@@ -141,7 +148,47 @@ const CHAINS = {
 
 **Note**: Network IDs are Agglayer-specific identifiers (different from Chain IDs).
 
-## 🔄 SDK Integration & Route Discovery
+## 🔄 SDK Integration & Configuration
+
+### SDK Initialization
+
+This test suite follows official **AggLayer SDK v0.1.0-beta** best practices:
+
+```javascript
+const { AggLayerSDK, SDK_MODES } = require('@agglayer/sdk');
+
+// Initialize SDK with both Core and Native modules
+const sdk = new AggLayerSDK({
+  mode: [SDK_MODES.CORE, SDK_MODES.NATIVE],
+
+  core: {
+    apiBaseUrl: 'https://arc-api.polygon.technology',
+    apiTimeout: 60000
+  },
+
+  native: {
+    defaultNetwork: 1,
+    chains: [/* custom chain configs */]
+  }
+});
+```
+
+### SDK Methods Used
+
+**Core Module (ARC API):**
+- `core.getAllChains()` - Validate chain configuration at startup
+- `core.getTokenMappings({ tokenAddress })` - Auto-discover wrapped tokens
+- `core.getRoutes({ fromChainId, toChainId, ... })` - Find optimal routes
+- `core.getUnsignedTransaction(routes)` - Build bridge transactions
+- `core.getClaimUnsignedTransaction({ sourceNetworkId, depositCount })` - Build claims
+- `core.getTransactions({ limit, startAfter })` - Transaction history
+
+**Native Module (Blockchain):**
+- `native.getNetwork(chainId)` - Get chain config
+- `native.bridge(address, chainId)` - Access bridge contract
+- `bridge.buildBridgeAsset({ ... })` - Build Native Bridge transactions
+
+### Route Discovery
 
 The test suite uses the Agglayer SDK's **Core API** and **Native Bridge** modules:
 
